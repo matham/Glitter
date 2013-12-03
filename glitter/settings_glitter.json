@@ -1,0 +1,148 @@
+[
+	{
+		"type": "title",
+		"title": "Settings"
+	},
+    {
+        "type": "numeric",
+        "title": "Frame rate",
+        "desc": "Default FPS.",
+        "section": "glitter",
+        "key": "frame_rate"
+    },
+    {
+        "type": "numeric",
+        "title": "Seeking distance",
+        "desc": "Duration by which to seek forward and backward.",
+        "section": "glitter",
+        "key": "seeking_dist"
+    },
+	{
+		"type": "bool",
+		"title": "Start paused",
+		"desc": "Pause whenever we reach the start of the video.",
+		"section": "glitter",
+		"key": "start_paused",
+		"values": ["0", "1"]
+	},
+    {
+        "type": "numeric",
+        "title": "Forward tint",
+        "desc": "Amount by which to tint forward paths (0.0 - 1.0).",
+        "section": "glitter",
+        "key": "path_fwd_tint"
+    },
+    {
+        "type": "numeric",
+        "title": "Forward xyt points",
+        "desc": "Time by which a xyt line extends into future (0>=).",
+        "section": "glitter",
+        "key": "xyt_fwd_dur"
+    },
+    {
+        "type": "numeric",
+        "title": "Backward xyt points",
+        "desc": "Time by which a xyt line extends into past (<=0).",
+        "section": "glitter",
+        "key": "xyt_bkwd_dur"
+    },
+    {
+        "type": "numeric",
+        "title": "Button height",
+        "desc": "Scoring button height.",
+        "section": "glitter",
+        "key": "add_button_height"
+    },
+    {
+        "type": "numeric",
+        "title": "Plotting pixel height",
+        "desc": "The height in pixels of a plot line.",
+        "section": "glitter",
+        "key": "plot_pixel_height"
+    },
+    {
+        "type": "numeric",
+        "title": "Plotting pixel width",
+        "desc": "The width in pixels of a plot line.",
+        "section": "glitter",
+        "key": "plot_pixel_width"
+    },
+    {
+        "type": "bool",
+        "title": "Plot contrast",
+        "desc": "Whether the plots should manipulate colors to increase contrast.",
+        "section": "glitter",
+        "key": "plot_use_contrast",
+        "values": ["0", "1"]
+    },
+    {
+        "type": "title",
+        "title": "Video Duration"
+    },
+    {
+        "type": "bool",
+        "title": "Limit range",
+        "desc": "Whether the video is limited to a sub-interval.",
+        "section": "glitter",
+        "key": "limit_range",
+        "values": ["0", "1"]
+    },
+    {
+        "type": "numeric",
+        "title": "Start time",
+        "desc": "If video interval is limited, the initial delay.",
+        "section": "glitter",
+        "key": "start_time"
+    },
+    {
+        "type": "numeric",
+        "title": "End time",
+        "desc": "If video interval is limited, the end time.",
+        "section": "glitter",
+        "key": "end_time"
+    },
+    {
+        "type": "title",
+        "title": "Data"
+    },
+    {
+        "type": "bool",
+        "title": "Load default data",
+        "desc": "Whether to load/create a default data file using the video file name.",
+        "section": "glitter",
+        "key": "load_default_data",
+        "values": ["0", "1"]
+    },
+    {
+        "type": "path",
+        "title": "Default data path",
+        "desc": "Path where data is defaulty saved to.",
+        "section": "glitter",
+        "key": "default_data_path"
+    },
+    {
+        "type": "numeric",
+        "title": "Autosave interval",
+        "desc": "The duration between autosaves (in minutes).",
+        "section": "glitter",
+        "key": "autosave_time"
+    },
+    {
+        "type": "title",
+        "title": "File paths"
+    },
+    {
+        "type": "path",
+        "title": "Last video path",
+        "desc": "Path to browse to when opening a video file.",
+        "section": "glitter",
+        "key": "last_vid_path"
+    },
+    {
+        "type": "path",
+        "title": "Last data path",
+        "desc": "Path to browse to when opening a data file.",
+        "section": "glitter",
+        "key": "last_data_path"
+    }
+]

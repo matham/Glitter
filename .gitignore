@@ -1,0 +1,6 @@
+*.pyc
+*.ini
+.project
+.pydevproject
+glitter/ffpyplayer
+glitter/libs

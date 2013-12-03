@@ -1,0 +1,1063 @@
+#:kivy 1.5.1
+#:import str_to_float main.str_to_float
+#:import printt main.printt
+#:import HelpDoc help.HelpDoc
+#:import log10 math.log10
+#:import sin math.sin
+#:import cos math.cos
+#:import Clock kivy.clock.Clock
+#:import ConfigParser kivy.config.ConfigParser
+#:import partial functools.partial
+#:import path os.path
+
+
+<DragPopup>:
+    drag_rectangle: self.x, self.y+self._container.height, self.width, self.height - self._container.height
+    drag_timeout: 10000000
+    drag_distance: 0
+
+<ScrollView>:
+    scroll_type: ['bars']
+    scroll_wheel_distance: 60
+
+
+#*******************************  file browser ********************************
+<PopupBrowser@Popup>:
+    size_hint: (None, None)
+    size: min(app.main_frame_w.width, 800), min(app.main_frame_w.height, 600)
+    base_path: ''
+    on_open: app.keyboard_active = False
+    def_path: 'data'
+    id: p_brsr
+    on_dismiss:
+        app.keyboard_active = True
+        file_browser.ids['list_view'].multiselect = False
+        file_browser.ids['icon_view'].multiselect = False
+        file_browser.ids['list_view'].selection = []
+        file_browser.ids['icon_view'].selection = []
+
+    filters: ''
+    on_filters:
+        file_browser.ids['list_view'].filters = root.filters
+        file_browser.ids['icon_view'].filters = root.filters
+        file_browser.ids['filt_text'].text = str(root.filters)
+    FileBrowser:
+        id: file_browser
+        on_parent:
+            self.ids['list_view'].bind(on_submit=lambda *args: app.set_last_path(p_brsr.def_path) and root.load_func(self.filename) and app.file_browser.dismiss())
+            self.ids['icon_view'].bind(on_submit=lambda *args: app.set_last_path(p_brsr.def_path) and root.load_func(self.filename) and app.file_browser.dismiss())
+        on_select_state:
+            self.select_state == 'down' and root.load_func((self.ids.tabbed_browser.get_current_tab().content.path + '\\' if not path.dirname(self.filename) else '') + self.filename) and app.file_browser.dismiss()
+            self.select_state == 'down' and app.set_last_path(p_brsr.def_path)
+        on_cancel_state: app.file_browser.dismiss()
+
+#*******************************  browser bar *********************************
+[TitledButton@Button]:
+    size_hint_x: None
+    width: ctx.width if hasattr(ctx, 'width') else 80
+    background_normal: 'media/transparent.png'
+    background_down: 'media/transparent.png'
+    on_release:
+        self.collide_point(*self.last_touch.pos) and ctx.release_func()
+    Image:
+        source: 'media/'+ctx.img+'_1.png' if self.parent.state == 'down' else 'media/'+ctx.img+'_0.png'
+        height: self.parent.height - app.control_text_height
+        width: self.parent.width
+        size_hint: None, None
+        x: self.parent.x
+        y: self.parent.y+app.control_text_height
+        allow_stretch: True
+    Label:
+        height: app.control_text_height
+        width: self.parent.width
+        size_hint: None, None
+        pos: self.parent.pos
+        text: ctx.text
+        halign: 'center'
+        #text_size: self.size
+[TitledBrowseButton@Button]:
+    size_hint_x: None
+    width: ctx.width if hasattr(ctx, 'width') else 80
+    background_normal: 'media/transparent.png'
+    background_down: 'media/transparent.png'
+    on_release:
+        app.file_browser.def_path = ctx.last_path
+        app.file_browser.filters = ctx.filters
+        app.file_browser.load_func = ctx.load_func
+        app.file_browser.title = ctx.title
+        app.file_browser.content.ids['list_view'].path = app.home_dir
+        app.file_browser.content.ids['list_view'].path = app.get_last_path(ctx.last_path)
+        app.file_browser.content.ids['icon_view'].path = app.home_dir
+        app.file_browser.content.ids['icon_view'].path = app.get_last_path(ctx.last_path)
+        app.file_browser.content.ids['list_view'].multiselect = ctx.multi if hasattr(ctx, 'multi') else False
+        app.file_browser.content.ids['icon_view'].multiselect = ctx.multi if hasattr(ctx, 'multi') else False
+        self.collide_point(*self.last_touch.pos) and app.file_browser.open()
+    Image:
+        source: 'media/'+ctx.img+'_1.png' if self.parent.state == 'down' else 'media/'+ctx.img+'_0.png'
+        height: self.parent.height - app.control_text_height
+        width: self.parent.width
+        size_hint: None, None
+        x: self.parent.x
+        y: self.parent.y+app.control_text_height
+        allow_stretch: True
+    Label:
+        height: app.control_text_height
+        width: self.parent.width
+        size_hint: None, None
+        pos: self.parent.pos
+        text: ctx.text
+        halign: 'center'
+        #text_size: self.size
+<BrowseBar@BoxLayout>:
+    orientation: 'horizontal'
+    padding: [8, 3, 8, 3]
+    spacing: 15
+    on_parent: app.browse_w = self
+    TitledBrowseButton:
+        filters: ''
+        width: 120
+        load_func: app.load_video
+        last_path: 'vid'
+        title: 'Video - Load a video file.'
+        img: 'video'
+        text: 'Load video file'
+    TitledBrowseButton:
+        filters: ['*.txt', '*.h5', '*.saved', '*.csv']
+        width: 120
+        load_func: app.load_data
+        last_path: 'data'
+        title: 'Data - Load or create a data file.'
+        img: 'floppy'
+        text: 'Load data file'
+    TitledButton:
+        release_func: partial(app.update_data, 'save')
+        img: 'save'
+        text: 'Save'
+    TitledButton:
+        release_func: partial(app.update_data, 'discard')
+        img: 'delete'
+        text: 'Discard'
+    TitledBrowseButton:
+        filters: ['*.plt', '*.h5', '*.saved']
+        load_func: partial(app.load_data, template=True)
+        last_path: 'data'
+        title: 'Template - Load or create a template file.'
+        img: 'template'
+        text: 'Template'
+    TitledButton:
+        release_func: app.close_video
+        img: 'stop'
+        text: 'Close'
+    ToggleButton:
+        id: settings_btn
+        size_hint_x: None
+        width: 80
+        background_normal: 'media/transparent.png'
+        background_down: 'media/transparent.png'
+        on_release:
+            export_btn.state = 'normal'
+            dancing_btn.state = 'normal'
+            app.img_screen_w.current = ('image' if self.state == 'normal' else 'glitter_settings')
+        Image:
+            source: 'media/settings2.png' if self.parent.state == 'down' else 'media/settings.png'
+            height: self.parent.height - app.control_text_height
+            width: self.parent.width
+            x: self.parent.x
+            y: self.parent.y+app.control_text_height
+            allow_stretch: True
+        Label:
+            height: app.control_text_height
+            width: self.parent.width
+            pos: self.parent.pos
+            text: 'Settings'
+    ToggleButton:
+        id: export_btn
+        size_hint_x: None
+        width: 80
+        background_normal: 'media/transparent.png'
+        background_down: 'media/transparent.png'
+        on_release:
+            settings_btn.state = 'normal'
+            dancing_btn.state = 'normal'
+            app.img_screen_w.current = ('image' if self.state == 'normal' else 'export')
+        Image:
+            source: 'media/export_1.png' if self.parent.state == 'down' else 'media/export_0.png'
+            height: self.parent.height - app.control_text_height
+            width: self.parent.width
+            x: self.parent.x
+            y: self.parent.y+app.control_text_height
+            allow_stretch: True
+        Label:
+            height: app.control_text_height
+            width: self.parent.width
+            pos: self.parent.pos
+            text: 'Export'
+    TitledButton:
+        release_func: app.help
+        img: 'help'
+        text: 'Help'
+    ToggleButton:
+        id: dancing_btn
+        size_hint_x: None
+        width: 80
+        background_normal: 'media/transparent.png'
+        background_down: 'media/transparent.png'
+        on_release:
+            export_btn.state = 'normal'
+            settings_btn.state = 'normal'
+            app.img_screen_w.current = 'image' if self.state == 'normal' else 'about'
+            app.prog_log_w.text = '' if self.state == 'normal' else app.prog_log
+        Image:
+            source: 'media/Dancing rats_1.png' if self.parent.state == 'down' else 'media/Dancing rats_0.png'
+            height: self.parent.height
+            width: self.parent.width
+            x: self.parent.x
+            y: self.parent.y
+            allow_stretch: True
+    TitledButton:
+        release_func: app.open_user_info
+        img: 'comment'
+        text: 'Comment'
+#*******************************************************************************
+
+
+
+
+
+#*******************************  paths ****************************************
+<XYTSettings>:
+    orientation: 'horizontal'
+    TextInput:
+        id: text_name
+        hint_text: 'Name.'
+        multiline: False
+    ToggleButton:
+        id: show_graph
+        text: 'Plot'
+<XYSettings>:
+    orientation: 'horizontal'
+    TextInput:
+        id: text_name
+        hint_text: 'Name.'
+        multiline: False
+<TSettings>:
+    TextInput:
+        id: text_name
+        hint_text: 'Name.'
+        multiline: False
+    ToggleButton:
+        id: show_graph
+        text: 'Plot'
+    ToggleButton:
+        id: event
+        group: 'event_type'
+        text: 'Event'
+    ToggleButton:
+        id: press
+        group: 'event_type'
+        text: 'Press'
+    ToggleButton:
+        id: toggle
+        group: 'event_type'
+        text: 'Toggle'
+    TextInput:
+        size_hint_x: None
+        width: '50sp'
+        id: keycode
+        hint_text: 'key.'
+        multiline: False
+    TextInput:
+        size_hint_x: None
+        width: '75sp'
+        id: group
+        hint_text: 'group.'
+        multiline: False
+<ColorSelector2>:
+    size_hint: (None, None)
+    size: (600, 600)
+    content: color_content
+    title: 'Channel settings'
+    on_open:
+        app.keyboard_active = False
+    on_dismiss:
+        app.keyboard_active = True
+    BoxLayout:
+        id: color_content
+        orientation: 'vertical'
+        size_hint: (1, 1)
+        ScreenManager:
+            id: screen_manager
+            size_hint: (1, .1)
+            on_parent: app.edit_screen_w = self
+            Screen:
+                name: 'xyt'
+                settings: xytsetting
+                XYTSettings:
+                    wheel: wheel
+                    id: xytsetting
+            Screen:
+                name: 't'
+                settings: tsetting
+                TSettings:
+                    wheel: wheel
+                    id: tsetting
+            Screen:
+                name: 'xy'
+                settings: xysetting
+                XYSettings:
+                    wheel: wheel
+                    id: xysetting
+        ColorPicker:
+            id: wheel
+            size_hint: (1, .8)
+        Button:
+            size_hint: (1, .1)
+            text: 'Accept'
+            on_release:
+                dict_color = dict(app.curr_edit_score.settings)
+                dict_color.update({'color':[c for c in wheel.color]})
+                dict_color.update(screen_manager.current_screen.settings.get_settings())
+                app.edit_button(dict_color)
+                root.dismiss()
+<UserInfo>:
+    size_hint: (None, None)
+    size: (600, 600)
+    content: user_content
+    auto_dismiss: False
+    title: 'User/Video information'
+    on_open:
+        app.keyboard_active = False
+        username.text = app.username
+        video_id.text = app.video_id
+        user_comment.text = app.user_comment
+    on_dismiss:
+        app.keyboard_active = True
+    BoxLayout:
+        id: user_content
+        orientation: 'vertical'
+        BoxLayout:
+            size_hint_y: 0.1
+            orientation: 'horizontal'
+            TextInput:
+                id: username
+                hint_text: 'Username'
+                multiline: False
+            TextInput:
+                id: video_id
+                hint_text: 'Video ID'
+                multiline: False
+        TextInput:
+            id: user_comment
+            hint_text: 'Comment'
+            size_hint_y: 0.8
+        Button:
+            size_hint_y: 0.1
+            text: 'Accept'
+            on_release:
+                app.set_user_info('username', username.text)
+                app.set_user_info('video_id', video_id.text)
+                app.set_user_info('user_comment', user_comment.text)
+                root.dismiss()
+
+
+
+
+<PathButton>:
+    size_hint: (1, None)
+    height: app.add_button_height
+    score_btn: path_btn
+    touching: False
+    key_touching: False
+    toggled: False
+    id: path_layout
+    ToggleButton:
+        size_hint: (None, None)
+        height: path_layout.height-8
+        width: path_layout.width-8
+        pos_hint: {'center_x':.5, 'center_y':.5}
+        id: path_btn
+        background_color: ((self.state == 'normal') and root.default_color) or root.down_color
+        background_down: ''
+        color: [1, 1, 1, 1] if self.background_color == root.default_color else root.comp_color
+        markup: True
+        on_press:
+            root.touching = True
+            app.score_button_press(root.__self__, 'press')
+        on_release:
+            root.touching = False
+            app.score_button_press(root.__self__, 'release')
+    Image:
+        source: 'media/selected2.png' if app.curr_score == root.__self__ else 'media/transparent.png'
+        allow_stretch: True
+        keep_ratio: False
+
+<PathBar@BoxLayout>:
+    orientation: 'horizontal'
+    activate_btn: activate
+    edit_btn: edit
+    clear_btn: clear
+    delete_btn: delete
+    app: app
+    on_parent: app.seek_bar_w = self
+    BoxLayout:
+        on_parent: app.status_bar_w = self
+        size_hint: (1, 1)
+        orientation: 'horizontal'
+        Label:
+            text: "%.2f" % seek.value
+            size_hint: (None, 1)
+            width: 50
+            halign: 'right'
+        RelativeLayout:
+            TickSlider:
+                id: seek
+                on_parent: app.seek_slider_w = self
+                orientation: 'horizontal'
+                size_hint: (None, 1)
+                width: self.parent.width - 60
+                x: 30
+                padding: 0
+                step: 0.001
+                ticks_minor: 5.0
+                ticks_major: 10.0
+                on_touch_up: self.collide_point(*args[1].pos) and args[1].grab_current == self and app.seek_to_pts(self.value)
+                on_touch_down: self.collide_point(*args[1].pos) and Clock.unschedule(app.get_next_frame)
+            ScrollView:
+                size_hint: None, None
+                size: bottom_scroll.size
+                pos: 30, self.parent.height - self.height
+                do_scroll: False, True
+                bar_width: '20dp'
+                RelativeLayout:
+                    on_parent: app.xyt_plot_w = self
+                    size_hint: None, None
+                    width: t_plot.width
+                    height: 0
+                    on_width: app.update_plot()
+            ScrollView:
+                id: bottom_scroll
+                size_hint: None, None
+                height: max(0, (self.parent.height - 30)/2)
+                width: self.parent.width - 40
+                pos: 30, 0
+                do_scroll: False, True
+                bar_width: 20
+                RelativeLayout:
+                    id: t_plot
+                    on_parent: app.t_plot_w = self
+                    size_hint: None, None
+                    width: self.parent.width - 20
+                    height: 0
+
+    BoxLayout:
+        orientation: 'horizontal'
+        size_hint: (None, 1)
+        width: 300
+        ToggleButton:
+            id: edit
+            on_release: app.mode = 'edit' if self.state == 'down' else ''
+            group: 'edits'
+            background_normal: 'media/transparent.png'
+            background_down: 'media/transparent.png'
+            on_state:
+                curr_trans_state = self.state == 'down' or app.shift_is_pressed
+                app.img_scatter_w.do_translation =  (curr_trans_state, curr_trans_state)
+                app.img_scatter_w.do_scale =  curr_trans_state
+                app.zooming = curr_trans_state
+            Image:
+                source: 'media/edit_1.png' if self.parent.state == 'down' else 'media/edit_0.png'
+                height: self.parent.height/2
+                width: self.parent.width
+                x: self.parent.x
+                y: self.parent.y + (self.parent.height/3)
+                allow_stretch: True
+            Label:
+                height: self.parent.height/3
+                width: self.parent.width
+                pos: self.parent.pos
+                text: 'Edit'
+        ToggleButton:
+            id: clear
+            on_release: app.mode = 'clear' if self.state == 'down' else ''
+            group: 'edits'
+            background_normal: 'media/transparent.png'
+            background_down: 'media/transparent.png'
+            Image:
+                source: 'media/erase_1.png' if self.parent.state == 'down' else 'media/erase_0.png'
+                height: self.parent.height/2
+                width: self.parent.width
+                x: self.parent.x
+                y: self.parent.y + (self.parent.height/3)
+                allow_stretch: True
+            Label:
+                height: self.parent.height/3
+                width: self.parent.width
+                pos: self.parent.pos
+                text: 'Clear'
+        ToggleButton:
+            id: activate
+            on_release: app.mode = 'activate' if self.state == 'down' else ''
+            group: 'edits'
+            background_normal: 'media/transparent.png'
+            background_down: 'media/transparent.png'
+            Image:
+                source: 'media/select_1.png' if self.parent.state == 'down' else 'media/select_0.png'
+                height: self.parent.height/2
+                width: self.parent.width
+                x: self.parent.x
+                y: self.parent.y + (self.parent.height/3)
+                allow_stretch: True
+            Label:
+                height: self.parent.height/3
+                width: self.parent.width
+                pos: self.parent.pos
+                text: 'Select'
+        ToggleButton:
+            id: delete
+            on_release: app.mode = 'delete' if self.state == 'down' else ''
+            group: 'edits'
+            background_normal: 'media/transparent.png'
+            background_down: 'media/transparent.png'
+            Image:
+                source: 'media/remove_1.png' if self.parent.state == 'down' else 'media/remove_0.png'
+                height: self.parent.height/2
+                width: self.parent.width
+                x: self.parent.x
+                y: self.parent.y + (self.parent.height/3)
+                allow_stretch: True
+            Label:
+                height: self.parent.height/3
+                width: self.parent.width
+                pos: self.parent.pos
+                text: 'Remove'
+
+#*******************************************************************************
+
+
+
+
+
+#*******************************  status ****************************************
+
+<StatusBar@BoxLayout>:
+    size_hint: (None, .1)
+    orientation: 'horizontal'
+    Label:
+        text: "%.2f" % seek.value
+        size_hint: (.2, 1)
+        halign: 'right'
+        text_size: (self.width-60, None)
+    TickSlider:
+        id: seek
+        on_parent: app.seek_slider_w = self
+        orientation: 'horizontal'
+        size_hint: (.8, 1)
+        padding: 30
+        step: 0.001
+        ticks_minor: 5.0
+        ticks_major: 10.0
+        on_touch_up: self.collide_point(*args[1].pos) and args[1].grab_current == self and app.seek_to_pts(self.value)
+        on_touch_down: self.collide_point(*args[1].pos) and Clock.unschedule(app.get_next_frame)
+#*******************************************************************************
+
+
+
+
+
+#*******************************  image ****************************************
+<ImageFrame@BoxLayout>:
+    orientation: 'horizontal'
+    BoxLayout:
+        size_hint: (None, 1)
+        pos_hint: {'center_y': .5}
+        orientation: 'vertical'
+        padding: [10, 30, 10, 3]
+        spacing: 5
+        width: 100
+        ToggleButton:
+            play: False
+            background_normal: 'media/pause.png'
+            background_down: 'media/play.png'
+            border: [0,0,0,0]
+            size_hint: (1, None)
+            height: 80
+            on_parent: app.pause_btn_w = self
+            on_release: (self.state == 'down') and app.pause(False) or app.unpause(False)
+        TickSlider:
+            id: rate
+            on_parent: app.rate_w = self
+            orientation: 'vertical'
+            size_hint: (1, 1)
+            padding: 30
+            log: True
+            min_log: 0.009
+            max_log: 10
+            value_log: 1
+            ticks_major: 1
+            ticks_minor: 5
+            on_value_log:
+                self.cont = not app.frame_rate and app.pause_btn_w.state == 'normal'
+                app.frame_rate = (self.value_log if self.value_log >= 0.01 else 0.0)
+                self.cont and app.frame_rate and app.unpause(False)
+        TextInput:
+            text: "%.2f" % (rate.value_log if rate.value_log >= 0.01 else 0.0)
+            size: (50, 30)
+            pos_hint: {'center_x': 0.4}
+            size_hint: (None, None)
+            multiline: False
+            on_text_validate: rate.value_log= str_to_float(self.text, 0.009, 10, False)
+            background_color: [0, 0, 0, 1]
+            border: [0, 0, 0, 0]
+            foreground_color: [1, 1, 1, 1]
+        Button:
+            size_hint_y: None
+            height: 40
+            background_normal: 'media/transparent.png'
+            background_down: 'media/transparent.png'
+            on_release:
+                app.img_w.rescale(rotation=90)
+            Image:
+                source: 'media/rotate_1.png' if self.parent.state == 'down' else 'media/rotate_0.png'
+                size: self.parent.size
+                pos: self.parent.pos
+                allow_stretch: True
+    ScreenManager:
+        on_parent: app.img_screen_w = self
+        Screen:
+            name: 'image'
+            ScrollView:
+                do_scroll: False, False
+                id: img_scrollview
+                RelativeLayout
+                    on_size: Clock.schedule_once(partial(img.rescale, 0))
+                    id: image_relative
+                    Scatter:
+                        on_parent: app.img_scatter_w = self
+                        size_hint: (None, None)
+                        size: img.size
+                        do_rotation: False
+                        auto_bring_to_front: False
+                        do_collide_after_children: False
+                        do_translation:  (False, False)
+                        do_scale: False
+                        BufferImage:
+                            id: img
+                            effect_width: image_relative.width
+                            effect_height: image_relative.height
+                            size_hint: None, None
+                            on_parent: app.img_w = self
+                            on_touch_down: app.touch_down(args)
+                            on_touch_move: app.touch_move(args)
+                            on_touch_up: app.touch_up(args)
+        Screen:
+            name: 'glitter_settings'
+            Settings:
+                size_hint: None, None
+                size: self.parent.size
+                on_parent:
+                    app.settings_screen_w = self
+                    self.add_json_panel('Glitter', app.config_track, 'settings_glitter.json')
+                    self.add_kivy_panel()
+        Screen:
+            name: 'export'
+            id: export_scn
+            BoxLayout:
+                spacing: 10
+                padding: 20
+                orientation: 'vertical'
+                BoxLayout:
+                    orientation: 'horizontal'
+                    size_hint_y: None
+                    height: 60
+                    BoxLayout:
+                        orientation: 'horizontal'
+                        size_hint: (None, 1)
+                        width: 360
+                        TitledBrowseButton:
+                            filters: ['*.txt']
+                            width: 60
+                            load_func: app.load_exporter
+                            last_path: 'data'
+                            title: 'Export - Load or create a exporter file.'
+                            img: 'floppy'
+                            text: 'File'
+                        TitledButton:
+                            width: 60
+                            release_func: partial(app.load_exporter, '', overwrite='re-save')
+                            img: 'save'
+                            text: 'Save'
+                        Button:
+                            size_hint_x: None
+                            width: 60
+                            background_normal: 'media/transparent.png'
+                            background_down: 'media/transparent.png'
+                            on_state:
+                                app.curr_export_btn and app.export_btns_w.remove_widget(app.curr_export_btn)
+                                app.curr_export_btn = None
+                            Image:
+                                source: 'media/remove_1.png' if self.parent.state == 'down' else 'media/remove_0.png'
+                                height: self.parent.height - app.control_text_height
+                                width: self.parent.width
+                                x: self.parent.x
+                                y: self.parent.y+app.control_text_height
+                                allow_stretch: True
+                        Button:
+                            size_hint_x: None
+                            width: 60
+                            background_normal: 'media/transparent.png'
+                            background_down: 'media/transparent.png'
+                            on_state: app.edit_export_btn()
+                            Image:
+                                source: 'media/edit_1.png' if self.parent.state == 'down' else 'media/edit_0.png'
+                                height: self.parent.height - app.control_text_height
+                                width: self.parent.width
+                                x: self.parent.x
+                                y: self.parent.y+app.control_text_height
+                                allow_stretch: True
+                            Label:
+                                height: app.control_text_height
+                                width: self.parent.width
+                                pos: self.parent.pos
+                                text: 'Edit'
+                        TitledButton:
+                            width: 60
+                            release_func: app.add_export_btn
+                            img: 'add'
+                            text: ''
+                        TextInput:
+                            id: include_raw
+                            size_hint_x: None
+                            width: 60
+                            hint_text: 'Record\nlength'
+                    ScrollView:
+                        size_hint: (1, 1)
+                        do_scroll_y: False
+                        bar_width: '20dp'
+                        BoxLayout:
+                            orientation: 'horizontal'
+                            size_hint: (None, 1)
+                            width: 70 * len(self.children)
+                            on_parent: app.export_btns_w = self
+                ScrollView:
+                    size_hint_y: .2
+                    bar_width: '20dp'
+                    do_scroll_x: False
+                    TextInput:
+                        on_parent: app.export_code_w = self
+                        size_hint_y: None
+                        height: max(self.parent.height, self.minimum_height)
+                        on_focus: app.keyboard_active = not args[1]
+                        disabled: app.curr_export_btn is None
+                BoxLayout:
+                    orientation: 'horizontal'
+                    size_hint_y: None
+                    height: 40
+                    Button:
+                        text: 'Test'
+                        on_release: app.test_export_chan(str_to_float(include_raw.text, 0, 10000000, False))
+                    Button:
+                        text: 'Run'
+                        on_release:
+                            app.file_browser.def_path = 'data'
+                            app.file_browser.load_func = app.create_export_data
+                            app.file_browser.title = 'Data files - Select the data files to process.'
+                            app.file_browser.content.ids['list_view'].path = app.home_dir
+                            app.file_browser.content.ids['list_view'].path = app.get_last_path('data')
+                            app.file_browser.content.ids['icon_view'].path = app.home_dir
+                            app.file_browser.content.ids['icon_view'].path = app.get_last_path('data')
+                            app.file_browser.content.ids['list_view'].multiselect = True
+                            app.file_browser.content.ids['icon_view'].multiselect = True
+                            app.file_browser.filters = ['*.h5']
+                            app.data_filename and app.file_browser.open()
+                    Button:
+                        text: 'Save'
+                        on_release:
+                            app.file_browser.def_path = 'data'
+                            app.file_browser.load_func = partial(app.save_export_data, record_count=str_to_float(include_raw.text, 0, 10000000, False))
+                            app.file_browser.title = 'Output file - Select the file for the exported data.'
+                            app.file_browser.content.ids['list_view'].path = app.home_dir
+                            app.file_browser.content.ids['list_view'].path = app.get_last_path('data')
+                            app.file_browser.content.ids['icon_view'].path = app.home_dir
+                            app.file_browser.content.ids['icon_view'].path = app.get_last_path('data')
+                            app.file_browser.filters = ['*.csv']
+                            app.data_filename and app.file_browser.open()
+                Splitter:
+                    size_hint_y: .7
+                    max_size: export_scn.height
+                    min_size: 0
+                    sizable_from: 'top'
+                    ScrollView:
+                        size_hint: (1, 1)
+                        bar_width: '20dp'
+                        Label:
+                            font_name: 'media/DroidSansMono.ttf'
+                            result: []
+                            size_hint: (None, None)
+                            size: self.texture_size
+                            halign: 'left'
+                            valign: 'top'
+                            on_parent: app.export_output_w = self
+        Screen:
+            name: 'about'
+            BoxLayout:
+                orientation: 'vertical'
+                spacing: 20
+                padding: 20
+                Label:
+                    size_hint_y: None
+                    height: 100
+                    text: app.about_info
+                    halign: 'center'
+                    valign: 'middle'
+                ScrollView:
+                    bar_width: '20dp'
+                    size_hint_y: .9
+                    Label:
+                        on_parent: app.prog_log_w = self
+                        size_hint: (None, None)
+                        size: self.texture_size
+                        halign: 'left'
+                        valign: 'top'
+        Screen:
+            name: 'help'
+            ScrollView:
+                bar_width: '20dp'
+                Label:
+                    text: HelpDoc
+                    size_hint: (1, None)
+                    height: self.texture_size[1]
+                    text_size: self.width, None
+                    halign: 'left'
+                    valign: 'top'
+                    markup: True
+    Splitter:
+        size_hint_x: None
+        width: 150
+        max_size: 150
+        min_size: '3pt'
+        sizable_from: 'left'
+        strip_size: '3pt'
+        BoxLayout:
+            orientation: 'vertical'
+            padding: 10
+            spacing: 5
+            ScrollView:
+                size_hint: (1, 1)
+                do_scroll_x: False
+                bar_width: '20dp'
+                BoxLayout:
+                    orientation: 'vertical'
+                    on_parent: app.xyt_buttons_w = self
+                    size_hint: (1, None)
+                    height: app.add_button_height * len(self.children)
+                    Button:
+                        size_hint_y: None
+                        height: app.add_button_height
+                        on_release: app.add_button({'score_type':'xyt'}, notify_media=True)
+                        background_normal: 'media/transparent.png'
+                        background_down: 'media/transparent.png'
+                        Image:
+                            source: 'media/add_xyt_1.png' if self.parent.state == 'down' else 'media/add_xyt_0.png'
+                            size: self.parent.size
+                            pos: self.parent.pos
+                            allow_stretch: True
+            Splitter:
+                max_size: root.height
+                min_size: 0
+                sizable_from: 'top'
+                ScrollView:
+                    size_hint: (1, 1)
+                    do_scroll_x: False
+                    bar_width: '20dp'
+                    BoxLayout:
+                        orientation: 'vertical'
+                        on_parent: app.xy_buttons_w = self
+                        size_hint: (1, None)
+                        height: app.add_button_height * len(self.children)
+                        Button:
+                            size_hint_y: None
+                            height: app.add_button_height
+                            on_release: app.add_button({'score_type':'xy'}, notify_media=True)
+                            background_normal: 'media/transparent.png'
+                            background_down: 'media/transparent.png'
+                            Image:
+                                source: 'media/add_xy_1.png' if self.parent.state == 'down' else 'media/add_xy_0.png'
+                                size: self.parent.size
+                                pos: self.parent.pos
+                                allow_stretch: True
+    Splitter:
+        size_hint_x: None
+        width: 150
+        max_size: 150
+        min_size: '3pt'
+        sizable_from: 'left'
+        strip_size: '3pt'
+        BoxLayout:
+            orientation: 'vertical'
+            padding: 10
+            spacing: 5
+            Button:
+                size_hint: (1, None)
+                height: 75
+                background_normal: 'media/minus_green.png'
+                background_down: 'media/minus_red.png'
+                border: [0,0,0,0]
+                pressing: False
+                on_parent: app.cut_t_button_w = self
+                on_press: app.curr_score and app.update_t_states(app.curr_score)
+                on_press: self.pressing = True
+                on_release: self.pressing = False
+            Button:
+                size_hint: (1, None)
+                height: 50
+                background_normal: 'media/go_next_black.png'
+                background_down: 'media/go_next_blue.png'
+                border: [0,0,0,0]
+                on_release: app.seek_to_next_break()
+            ScrollView:
+                size_hint: (1, 1)
+                do_scroll_x: False
+                bar_width: '20dp'
+                BoxLayout:
+                    orientation: 'vertical'
+                    on_parent: app.t_buttons_w = self
+                    size_hint: (1, None)
+                    height: app.add_button_height * len(self.children)
+                    Button:
+                        size_hint_y: None
+                        height: app.add_button_height
+                        on_release: app.add_button({'score_type':'t'}, notify_media=True); app.pause()
+                        background_normal: 'media/transparent.png'
+                        background_down: 'media/transparent.png'
+                        Image:
+                            source: 'media/add_t_1.png' if self.parent.state == 'down' else 'media/add_t_0.png'
+                            size: self.parent.size
+                            pos: self.parent.pos
+                            allow_stretch: True
+
+
+
+
+
+<MainFrame>:
+    orientation: 'vertical'
+    padding: 10
+    on_parent: app.main_frame_w = self
+    id: back
+    Splitter:
+        size_hint_y: None
+        height: 75
+        max_size: 75
+        min_size: '3pt'
+        sizable_from: 'bottom'
+        strip_size: '3pt'
+        BrowseBar
+    Splitter:
+        size_hint_y: None
+        height: 100
+        max_size: 100
+        min_size: '3pt'
+        sizable_from: 'bottom'
+        strip_size: '3pt'
+        PathBar:
+            on_parent: app.path_bar_w = self
+    ImageFrame:
+        id: img
+
+
+<ErrorInfo>:
+    size_hint: (None, None)
+    size: (500, 500)
+    auto_dismiss: False
+    on_open:
+        app.keyboard_active = False
+    on_dismiss:
+        error_screen.current = 'default'
+        res_func = None
+        app.keyboard_active = True
+        load_btn.disabled = False
+        merge_btn.disabled = False
+    data_load_btn: load_btn
+    merge_btn: merge_btn
+    content: err
+    title: 'Error!'
+    err_message: message
+    res_func: None
+    error_screen: error_screen
+    BoxLayout:
+        id: err
+        orientation: 'vertical'
+        padding: 20
+        Label:
+            id: message
+            text: 'Error message'
+            halign: 'left'
+            size_hint: (1, .8)
+            text_size: self.size
+            valign: 'top'
+            padding: 10, 10
+        ScreenManager:
+            id: error_screen
+            size_hint: (1, .2)
+            Screen:
+                name: 'default'
+                Button:
+                    halign: 'center'
+                    valign: 'middle'
+                    text: 'I know'
+                    text_size: self.size
+                    on_release:
+                        root.dismiss()
+                        if root.res_func: root.res_func('know')
+                    #pos_hint: {'x': 0.5}
+            Screen:
+                name: 'data_choice'
+                BoxLayout:
+                    orientation: 'horizontal'
+                    Button:
+                        id: load_btn
+                        text: 'Load'
+                        on_release:
+                            root.dismiss(force=True)
+                            if root.res_func: root.res_func('load')
+                    Button:
+                        text: 'Merge'
+                        id: merge_btn
+                        on_release:
+                            root.dismiss(force=True)
+                            if root.res_func: root.res_func('merge')
+                    Button:
+                        text: 'Overwrite'
+                        on_release:
+                            root.dismiss(force=True)
+                            if root.res_func: root.res_func('overwrite')
+                    Button:
+                        text: 'Browse'
+                        on_release:
+                            root.dismiss(force=True)
+                            #app.file_browser.load_func = app.file_browser.load_func or app.load_log
+                            #app.file_browser.title = app.file_browser.title or 'Load or create a log file.'
+                            app.file_browser.content.ids['list_view'].path = app.home_dir
+                            app.file_browser.content.ids['list_view'].path = app.get_last_path('data')
+                            app.file_browser.content.ids['icon_view'].path = app.home_dir
+                            app.file_browser.content.ids['icon_view'].path = app.get_last_path('data')
+                            app.file_browser.open()
+                    Button:
+                        text: 'Cancel'
+                        on_release:
+                            root.dismiss()
+                            #if root.res_func: root.res_func('cancel')
+            Screen:
+                name: 'autosave'
+                BoxLayout:
+                    orientation: 'horizontal'
+                    Button:
+                        text: 'Delete'
+                        on_release:
+                            root.dismiss()
+                            if root.res_func: root.res_func(action='delete')
+                    Button:
+                        text: 'Save'
+                        on_release:
+                            root.dismiss()
+                            if root.res_func: root.res_func(action='save')
