@@ -11,7 +11,7 @@ from functools import partial
 from math import log10, floor, sin, cos, atan, radians, sqrt
 
 from kivy.config import Config
-Config.set('kivy', 'exit_on_escape', 1)
+Config.set('kivy', 'exit_on_escape', 0)
 kivy.require('1.8.0')
 from kivy.base import EventLoop
 EventLoop.ensure_window()
@@ -222,6 +222,8 @@ class TrackApp(App):
     browse_w = ObjectProperty(None)
     user_comment_w = ObjectProperty(None)
     settings_screen_w = ObjectProperty(None)
+    rate_text_w = ObjectProperty(None)
+    export_n_text_w = ObjectProperty(None)
 
     curr_export_btn = ObjectProperty(None, allownone=True)
 
@@ -253,7 +255,7 @@ class TrackApp(App):
         super(TrackApp, self).__init__(**kwargs)
         self.icon = 'media/Dancing rats_clean.png'
         self.about_info = '''
-        Interactive video analysis (CPL Lab v2.0)
+        Interactive video analysis (CPL Lab v2.1)
 
         "And above all, watch with glittering eyes the whole world around you
         because the greatest secrets are always hidden in the most unlikely places."
@@ -486,6 +488,7 @@ class TrackApp(App):
 
     def on_start(self):
         self.keyboard = Window.request_keyboard(None, self.img_w)
+        self.keyboard.ignored_events = []
         self.keyboard.bind(on_key_down=self.on_keyboard_down)
         self.keyboard.bind(on_key_up=self.on_keyboard_up)
         self.set_tittle()
@@ -520,14 +523,11 @@ class TrackApp(App):
 
     def recover_data(self, purpose='result', action='save'):
         if purpose == 'notify':
-            self.error_popup.err_message.text= ('The program closed unexpectedly '+
+            self.exception_handler('The program closed unexpectedly '+
             'previously. The following autosaved data file has been recovered: ' +
             self.config_sys.get('glitter', 'autosave_file') + '. \n\nWhat would '+
-            'you like to do with it - delete it, or save it?')
-            self.error_popup.res_func = self.recover_data
-            self.error_popup.title = 'File recovered.'
-            self.error_popup.error_screen.current = PyTrackPopups['recover_autosave']
-            self.error_popup.open()
+            'you like to do with it - delete it, or save it?', self.recover_data,
+            'recover_autosave', 'File recovered.')
         elif purpose == 'result':
             filename = self.config_sys.get('glitter', 'autosave_file')
             if action == 'save':
@@ -546,7 +546,9 @@ class TrackApp(App):
                 pass
 
     def on_keyboard_down(self, keyboard, keycode, text, modifiers):
-        if not self.keyboard_active:
+        if (self.export_code_w.focus or self.export_n_text_w.focus or
+            self.rate_text_w.focus or not self.keyboard_active):
+            self.keyboard.ignored_events.append(keyboard.uid)
             return False
         if keycode[1] == 'o' and 'ctrl' in modifiers:
             # this can work when kivy templates become less crappy.
@@ -639,7 +641,8 @@ class TrackApp(App):
         return True
 
     def on_keyboard_up(self, keyboard, keycode):
-        if not self.keyboard_active:
+        if keyboard.uid in self.keyboard.ignored_events:
+            self.keyboard.ignored_events.remove(keyboard.uid)
             return False
         if keycode[1] == 'shift':
             if self.mode != 'edit':
@@ -651,9 +654,9 @@ class TrackApp(App):
             self.cut_t_button_w.state = 'normal'
         elif keycode[1] in self.keycode_dict or (keycode[1] in self.numpad_list\
         and keycode[1][-1] in self.keycode_dict):
-            btn = self.keycode_dict[keycode[1]]
+            btn = self.keycode_dict[keycode[1][-1]]
             if btn[1] == 'on':
-                self.keycode_dict[keycode[1]] = btn[0], 'off'
+                self.keycode_dict[keycode[1][-1]] = btn[0], 'off'
                 btn[0].key_touching = False
                 self.score_button_press(btn[0], 'release', virtual=True)
         else:
@@ -709,11 +712,7 @@ class TrackApp(App):
                 self.media.seek_to_pts(self.start_time)
         except Exception as e:
             logging.warning(traceback.format_exc())
-            self.error_popup.err_message.text= str(e)
-            self.error_popup.title = 'Error!'
-            self.error_popup.res_func = None
-            self.error_popup.error_screen.current = PyTrackPopups['error']
-            self.error_popup.open()
+            self.exception_handler(str(e), None, 'error', 'Error!')
             self.media= None
             return False
         Clock.unschedule(self.media.modify_log)
@@ -757,21 +756,14 @@ class TrackApp(App):
                 headers = self.media.load_log(filename, overwrite, template)
             except Exception as e:
                 logging.warning(traceback.format_exc())
-                self.error_popup.err_message.text = str(e) + '\n' + traceback.format_exc()
+                msg = str(e) + '\n' + traceback.format_exc()
                 if e.__class__ != PyTrackException or e.exception_type == 'error':
-                    self.error_popup.error_screen.current = PyTrackPopups['error']
-                    self.error_popup.title = 'Error!'
-                    self.error_popup.res_func = None
+                    self.exception_handler(msg, None, 'error', 'Error!', delay=True)
                 else:
-                    if template:
-                        self.error_popup.data_load_btn.disabled = True
-                    self.error_popup.res_func = partial(self.load_data, filename, template=template)
-                    self.error_popup.error_screen.current = PyTrackPopups['data_res']
-                    self.error_popup.title = 'File Conflict'
-                if self.error_popup._window:
-                    Clock.schedule_once(lambda *largs:self.error_popup.open(), 2)
-                else:
-                    self.error_popup.open()
+                    self.exception_handler(msg, partial(self.load_data, filename,
+                                                        template=template),
+                                           'data_res', 'File Conflict', delay=True,
+                                           disabled=['load'] if template else [])
                 return True
             if overwrite != 'merge' and overwrite != 'overwrite' and not template:
                 self.delete_all_buttons(notify=False)
@@ -785,11 +777,8 @@ class TrackApp(App):
             self.update_t_states()
             self.update_plot()
         else:
-            self.error_popup.err_message.text= "You haven't opened a video file yet."
-            self.error_popup.title = 'Error!'
-            self.error_popup.res_func = None
-            self.error_popup.error_screen.current = PyTrackPopups['error']
-            self.error_popup.open()
+            self.exception_handler("You haven't opened a video file yet.", None,
+                                   'error', 'Error!')
             return True
         return True
 
@@ -873,7 +862,10 @@ class TrackApp(App):
             if purpose == 'discard':
                 self.load_data(self.data_filename, 'load')
             else:
-                self.media.modify_log(purpose)
+                try:
+                    self.media.modify_log(purpose)
+                except Exception as e:
+                    self.exception_handler(str(e), None, 'error', 'Error!')
 
     def close_video(self):
         if self.export_file:
@@ -1774,38 +1766,21 @@ class TrackApp(App):
                     self.export_filename = filename
                     self.curr_export_btn = None
                 elif overwrite == 'raise':
-                    self.error_popup.err_message.text = ('File already exists.'+
+                    self.exception_handler('File already exists.'+
                     '\n\nWhat would you like to do?\n-Load the file and overwrite the current '+
                     'channels.\n-Merge the current channels with the file channels.\n-Overwrite the file with '+
-                    'the current channels (overwrites the file on disk).\n-Browse for another file.\n-Cancel.')
-                    self.error_popup.res_func = partial(self.load_exporter, filename)
-                    self.error_popup.error_screen.current = PyTrackPopups['data_res']
-                    self.error_popup.title = 'File Conflict'
-                    if self.error_popup._window:
-                        Clock.schedule_once(lambda *largs:self.error_popup.open(), 2)
-                    else:
-                        self.error_popup.open()
+                    'the current channels (overwrites the file on disk).\n-Browse for another file.\n-Cancel.',
+                    partial(self.load_exporter, filename), 'data_res', 'File Conflict', delay=True)
                     return True
             except Exception as e:
-                self.error_popup.err_message.text = str(e)
-                self.error_popup.error_screen.current = PyTrackPopups['error']
-                self.error_popup.title = 'Error!'
-                self.error_popup.res_func = None
-                if self.error_popup._window:
-                    Clock.schedule_once(lambda *largs:self.error_popup.open(), 2)
-                else:
-                    self.error_popup.open()
+                self.exception_handler(str(e), None, 'error', 'Error!', delay=True)
                 return True
             if new_btns:
                 new_btns = re.split('channel:(.*?)\n', new_btns)
                 for i in range((len(new_btns)-1)/2):
                     self.add_export_btn(new_btns[i*2 + 1], new_btns[i*2 + 2].rstrip())
         else:
-            self.error_popup.err_message.text= "You haven't opened a data file yet."
-            self.error_popup.title = 'Error!'
-            self.error_popup.res_func = None
-            self.error_popup.error_screen.current = PyTrackPopups['error']
-            self.error_popup.open()
+            self.exception_handler("You haven't opened a data file yet.", None, 'error', 'Error!')
             return True
         return True
 
@@ -1896,36 +1871,18 @@ class TrackApp(App):
                             export_file.write('\n'.join([','.join([col[i] for col in res]) for i in range(length)]))
                             export_file.write('\n')
                 elif overwrite == 'raise':
-                    self.error_popup.err_message.text = ('File already exists.'+
+                    self.exception_handler('File already exists.'+
                     '\n\nWhat would you like to do?\n-Load the file and overwrite the current '+
                     'channels.\n-Merge the current channels with the file channels.\n-Overwrite the file with '+
-                    'the current channels (overwrites the file on disk).\n-Browse for another file.\n-Cancel.')
-                    self.error_popup.res_func = partial(self.save_export_data, filename, record_count)
-                    self.error_popup.error_screen.current = PyTrackPopups['data_res']
-                    self.error_popup.title = 'File Conflict'
-                    self.error_popup.data_load_btn.disabled = True
-                    self.error_popup.merge_btn.disabled = True
-                    if self.error_popup._window:
-                        Clock.schedule_once(lambda *largs:self.error_popup.open(), 2)
-                    else:
-                        self.error_popup.open()
+                    'the current channels (overwrites the file on disk).\n-Browse for another file.\n-Cancel.',
+                    partial(self.save_export_data, filename, record_count), 'data_res', 'File Conflict',
+                    disabled=['load', 'merge'], delay=True)
                     return True
             except Exception as e:
-                self.error_popup.err_message.text = str(e)
-                self.error_popup.error_screen.current = PyTrackPopups['error']
-                self.error_popup.title = 'Error!'
-                self.error_popup.res_func = None
-                if self.error_popup._window:
-                    Clock.schedule_once(lambda *largs:self.error_popup.open(), 2)
-                else:
-                    self.error_popup.open()
+                self.exception_handler(str(e), None, 'error', 'Error!', delay=True)
                 return True
         else:
-            self.error_popup.err_message.text= "You haven't opened a data file yet."
-            self.error_popup.title = 'Error!'
-            self.error_popup.res_func = None
-            self.error_popup.error_screen.current = PyTrackPopups['error']
-            self.error_popup.open()
+            self.exception_handler("You haven't opened a data file yet.", None, 'error', 'Error!')
             return True
         return True
 
@@ -1970,6 +1927,20 @@ class TrackApp(App):
         self.img_screen_w.current = 'help' if self.img_screen_w.current != 'help' else 'image'
     def open_user_info(self):
         self.user_comment_w.open()
+
+    def exception_handler(self, msg, res_func, screen, title, disabled=[], delay=False):
+        self.error_popup.err_message.text = msg
+        self.error_popup.res_func = res_func
+        self.error_popup.error_screen.current = PyTrackPopups[screen]
+        self.error_popup.title = title
+        if 'load' in disabled:
+            self.error_popup.data_load_btn.disabled = True
+        if 'merge' in disabled:
+            self.error_popup.merge_btn.disabled = True
+        if delay and self.error_popup._window:
+            Clock.schedule_once(lambda *largs:self.error_popup.open(), 2)
+        else:
+            self.error_popup.open()
 
 
 if __name__ == '__main__':

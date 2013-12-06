@@ -1,9 +1,5 @@
 import operator
-import sys
-if getattr(sys, 'frozen', False):
-    from collider import Collide2DPoly
-else:
-    from kivy.garden.collider import Collide2DPoly
+from kivy.garden.collider import Collide2DPoly
 import itertools
 
 __all__ = ('DataList', )
@@ -19,7 +15,7 @@ class DataList(list):
         self.func = func
         self.pts = []
         self.d = d
-    
+
     def compare_constant(self, value, op):
         if value.__class__ is not float and value.__class__ is not int:
             raise Exception('Invalid data type, %s, given to %s comparison operator.' %(type(value), op))
@@ -38,7 +34,7 @@ class DataList(list):
         return self.compare_constant(val, 'gt')
     def __ge__(self, val):
         return self.compare_constant(val, 'ge')
-    
+
     def within_dist(self, value):
         if value.__class__ is not float and value.__class__ is not int:
             raise Exception('Invalid data type, %s, used in within_dist.' %type(value))
@@ -55,7 +51,7 @@ class DataList(list):
             else:
                 result[i] = any([point + value < pts[i] <= point for point in points])
         return result
-        
+
     def __or__(self, other):
         if other.__class__ is not DataList:
             raise Exception('Invalid data type given to or (|).')
@@ -72,7 +68,7 @@ class DataList(list):
             result.extend([self[i] or other[i] for i in range(len(self))])
             return result
         raise Exception("You cannot 'or' a "+score_types[0]+' type with a '+score_types[1]+' type.')
-    
+
     def __invert__(self):
         if self.score_type != 't':
             raise Exception("You can only 'invert' t type data.")
@@ -80,7 +76,7 @@ class DataList(list):
         result.pts = self.pts
         result[:] = [not val for val in self]
         return result
-        
+
     def __and__(self, other):
         if other.__class__ is not DataList:
             raise Exception('Invalid data type given to and (&).')

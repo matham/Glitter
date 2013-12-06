@@ -17,6 +17,7 @@
     drag_distance: 0
 
 <ScrollView>:
+    bar_width: '9dp'
     scroll_type: ['bars']
     scroll_wheel_distance: 60
 
@@ -600,6 +601,7 @@
                 app.frame_rate = (self.value_log if self.value_log >= 0.01 else 0.0)
                 self.cont and app.frame_rate and app.unpause(False)
         TextInput:
+            on_parent: app.rate_text_w = self
             text: "%.2f" % (rate.value_log if rate.value_log >= 0.01 else 0.0)
             size: (50, 30)
             pos_hint: {'center_x': 0.4}
@@ -726,6 +728,7 @@
                             text: ''
                         TextInput:
                             id: include_raw
+                            on_parent: app.export_n_text_w = self
                             size_hint_x: None
                             width: 60
                             hint_text: 'Record\nlength'
@@ -746,7 +749,6 @@
                         on_parent: app.export_code_w = self
                         size_hint_y: None
                         height: max(self.parent.height, self.minimum_height)
-                        on_focus: app.keyboard_active = not args[1]
                         disabled: app.curr_export_btn is None
                 BoxLayout:
                     orientation: 'horizontal'

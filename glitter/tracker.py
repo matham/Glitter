@@ -6,7 +6,10 @@ import itertools
 import tables as tb
 import tempfile
 import time
-import __init__
+try:
+    import glitter
+except:
+    import __init__ as glitter
 import operator
 import bisect
 import csv
@@ -185,8 +188,8 @@ class TrackLog(object):
         log = tb.open_file(temp_name, 'w')
         self.log_temp = log
         logging.info('Creating internal log file at: %s' % log)
-        log.root._v_attrs.Glitter_version = __init__.__version__
-        log.root._v_attrs.Glitter_description = __init__.__description__
+        log.root._v_attrs.Glitter_version = glitter.__version__
+        log.root._v_attrs.Glitter_description = glitter.__description__
         log.root._v_attrs.username = ''
         log.root._v_attrs.user_comment = ''
         log.root._v_attrs.video_id = ''
@@ -274,24 +277,31 @@ class TrackLog(object):
                     res[col] = (col, settings)
                 return res
             else:
-                template_file = tb.open_file(logfile, 'a')
-                raw_group = template_file.root.raw_data
-                for row in raw_group.pts._f_list_nodes():
-                    template_file.remove_node(row, recursive=True)
-                for group in raw_group._f_iter_nodes():
-                    if group._v_name == 'pts' or group._v_attrs.score_type != 'xy':
-                        for row in group._f_list_nodes():
-                            template_file.remove_node(row, recursive=True)
-                template_file.close()
-                return []
+                template_file = None
+                try:
+                    template_file = tb.open_file(logfile, 'a')
+                    raw_group = template_file.root.raw_data
+                    for row in raw_group.pts._f_list_nodes():
+                        template_file.remove_node(row, recursive=True)
+                    for group in raw_group._f_iter_nodes():
+                        if group._v_name == 'pts' or group._v_attrs.score_type != 'xy':
+                            for row in group._f_list_nodes():
+                                template_file.remove_node(row, recursive=True)
+                    return []
+                finally:
+                    if template_file:
+                        template_file.close()
         except IOError as e: # file exits and we don't overwrite
             if overwrite == 'raise' and not len(self.score_groups):
                 overwrite = 'load'
             if overwrite == 'raise':
-                log = tb.open_file(logfile)
-                cols = [node._v_name for node in log.root.raw_data._f_iter_nodes() if node._v_name != 'pts']
-
-                log.close()
+                log = None
+                try:
+                    log = tb.open_file(logfile)
+                    cols = [node._v_name for node in log.root.raw_data._f_iter_nodes() if node._v_name != 'pts']
+                finally:
+                    if log:
+                        log.close()
                 raise PyTrackException('log_res', logfile + ' already exists '+
                 'with the following columns: [' + ' | '.join(cols) +
                 ']. \n\nWhat would you like to do?\n-Load the file and overwrite the current '+
@@ -304,57 +314,51 @@ class TrackLog(object):
                                            'Not all frames have been seen yet. You cannot '+
                                            'merge a log until the full video has been seen.')
                 if tb.is_pytables_file(logfile):
-                    log = tb.open_file(logfile)
-#                     if log.root._v_attrs.Glitter_version != __init__.__version__:
-#                         raise PyTrackException('error',
-#                                                'The version of '+logfile+' is different than '+
-#                                                 'the program\'s version. You might want to merge '+
-#                                                 'the data file instead.')
-                    raw_group = log.root.raw_data
-                    video_group = log.root.video_info
-                    pts_group = raw_group.pts
-#                     if (video_group._v_attrs.video_params['width'],
-#                         video_group._v_attrs.video_params['height']) != self.frame_size:
-#                         raise PyTrackException('error',
-#                                                'The video frame size of '+logfile+' is' +
-#                                                'different than the current video frame size.')
-                    score_groups = [None,] * (raw_group._v_nchildren - 1)
-                    settings_list = list(score_groups)
-                    res = list(score_groups)
-                    for group in raw_group._f_iter_nodes():
-                        if group._v_name != 'pts':
-                            score_groups[int(group._v_name.rpartition('_')[2])] = group
-                    for chan in range(len(score_groups)):
-                        settings = {}
-                        for setting in score_groups[chan]._v_attrs._f_list('user'):
-                            settings[setting] = score_groups[chan]._v_attrs[setting]
-                        settings_list[chan] = settings
-                    n_pts = len(pts_group._f_list_nodes())
-                    data = [[None for j in range(len(score_groups)+1)] for i in range(max(1, n_pts))]
-                    for chan in range(len(score_groups)):
-                        for row in score_groups[chan]._f_iter_nodes():
-                            data[int(row._v_name.rpartition('_')[2])][chan + 1] = row
-                    for row in pts_group._f_iter_nodes():
-                        data[int(row._v_name.rpartition('_')[2])][0] = row
-                    dist_max = 0
-                    sorted_pts_list = []
-                    pts_list = self.pts_list
-                    self.get_closest_pts(sorted_pts_list)
-                    for chan in range(len(score_groups)):
-                        count = len(self.score_groups)
-                        settings = settings_list[chan]
-                        self.add_header(count, settings)
-                        if settings['score_type'] == 'xy' and data[0][chan+1] and len(data[0][chan+1]):
-                            self.add_data_range(count, list(data[0][chan+1]))
-                        elif not template:
-                            for i in range(len(data)):
-                                for j in range(len(data[i][chan+1]) if data[i][chan+1] else 0):
-                                    pts = self.get_closest_pts(sorted_pts_list, data[i][0][j])
-                                    dist_max = max(dist_max, abs(pts-data[i][0][j]))
-                                    matched_list, matched_idx = pts_list[pts]
-                                    matched_list[1+count][matched_idx] = data[i][1+chan][j]
-                        res[chan] = count, settings
-                    log.close()
+                    log = None
+                    try:
+                        log = tb.open_file(logfile)
+                        raw_group = log.root.raw_data
+                        video_group = log.root.video_info
+                        pts_group = raw_group.pts
+                        score_groups = [None,] * (raw_group._v_nchildren - 1)
+                        settings_list = list(score_groups)
+                        res = list(score_groups)
+                        for group in raw_group._f_iter_nodes():
+                            if group._v_name != 'pts':
+                                score_groups[int(group._v_name.rpartition('_')[2])] = group
+                        for chan in range(len(score_groups)):
+                            settings = {}
+                            for setting in score_groups[chan]._v_attrs._f_list('user'):
+                                settings[setting] = score_groups[chan]._v_attrs[setting]
+                            settings_list[chan] = settings
+                        n_pts = len(pts_group._f_list_nodes())
+                        data = [[None for j in range(len(score_groups)+1)] for i in range(max(1, n_pts))]
+                        for chan in range(len(score_groups)):
+                            for row in score_groups[chan]._f_iter_nodes():
+                                data[int(row._v_name.rpartition('_')[2])][chan + 1] = row
+                        for row in pts_group._f_iter_nodes():
+                            data[int(row._v_name.rpartition('_')[2])][0] = row
+                        dist_max = 0
+                        sorted_pts_list = []
+                        pts_list = self.pts_list
+                        self.get_closest_pts(sorted_pts_list)
+                        for chan in range(len(score_groups)):
+                            count = len(self.score_groups)
+                            settings = settings_list[chan]
+                            self.add_header(count, settings)
+                            if settings['score_type'] == 'xy' and data[0][chan+1] and len(data[0][chan+1]):
+                                self.add_data_range(count, list(data[0][chan+1]))
+                            elif not template:
+                                for i in range(len(data)):
+                                    for j in range(len(data[i][chan+1]) if data[i][chan+1] else 0):
+                                        pts = self.get_closest_pts(sorted_pts_list, data[i][0][j])
+                                        dist_max = max(dist_max, abs(pts-data[i][0][j]))
+                                        matched_list, matched_idx = pts_list[pts]
+                                        matched_list[1+count][matched_idx] = data[i][1+chan][j]
+                            res[chan] = count, settings
+                    finally:
+                        if log:
+                            log.close()
                 else:
                     with open(logfile, 'r') as csvfile:
                         csvlog = [row for row in csv.reader(csvfile)]
@@ -439,7 +443,7 @@ class TrackLog(object):
                 log_temp.close()
                 if res:
                     res += ' You might want to merge the file instead.'
-                    raise PyTrackException('error', res+'\n\n Error message: ' + str(e))
+                    raise PyTrackException('log_res', res+'\n\n Error message: ' + str(e))
                 temp_filename = log.filename
                 log.close()
                 log = tb.open_file(logfile)
@@ -457,8 +461,8 @@ class TrackLog(object):
                     log.copy_file(auto_name, overwrite=True)
                     self.log_auto = auto_name
                 self.jumped = True  # make sure info is up to date
-                log.root._v_attrs.Glitter_version = __init__.__version__
-                log.root._v_attrs.Glitter_description = __init__.__description__
+                log.root._v_attrs.Glitter_version = glitter.__version__
+                log.root._v_attrs.Glitter_description = glitter.__description__
                 #log.root._v_attrs.username = ''
                 #log.root._v_attrs.user_comment = ''
                 #log.root._v_attrs.video_id = ''
