@@ -267,6 +267,8 @@ class TrackLog(object):
                     self.log_auto = temp_name
                 self.unsaved_changes = False
                 self.status_func(unsaved=False)
+                if overwrite == 'overwrite':
+                    return []
                 score_groups = self.score_groups
                 res = [None, ] * len(score_groups)
                 for col in range(len(score_groups)):
