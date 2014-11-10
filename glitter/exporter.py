@@ -78,8 +78,24 @@ class DataList(list):
         return result
 
     def __and__(self, other):
-        if other.__class__ is not DataList:
+        if not isinstance(other, (DataList, tuple)):
             raise Exception('Invalid data type given to and (&).')
+        if isinstance(other, tuple):
+            score_type = self.score_type
+            if 'pts' == score_type:
+                raise Exception("You cannot 'and' pts type data.")
+            if score_type != 't':
+                raise Exception("You can only 'and' identical data types if they are both of type t.")
+            result = DataList(self.d, self.score_type, self.name, 'and_'+str(other), self)
+            pts = result.pts = self.pts
+            pts0 = pts[0]
+            if len(other) == 1:
+                s, e = other[0] + pts0, pts[-1]
+            else:
+                s, e = other
+                s, e = s + pts0, e + pts0
+            result.extend([self[i] and s <= pts[i] <= e for i in range(len(self))])
+            return result
         score_types = (self.score_type, other.score_type)
         if 'pts' in score_types:
             raise Exception("You cannot 'and' pts type data.")

@@ -436,8 +436,8 @@ class TrackLog(object):
                 log = self.log_temp         # overwrite temp file with new file
                 log_temp = tb.open_file(logfile)
                 res = ''
-                if log_temp.root._v_attrs.Glitter_version != log.root._v_attrs.Glitter_version:
-                    res = "%s version is different than the current program's version" %filename
+                #if log_temp.root._v_attrs.Glitter_version != log.root._v_attrs.Glitter_version:
+                #    res = "%s version is different than the current program's version" %filename
                 if log_temp.root.video_info._v_attrs.file_name != log.root.video_info._v_attrs.file_name:
                     res = "%s video file's name is different than the current video file." %filename
                 if log_temp.root.video_info._v_attrs.video_params != log.root.video_info._v_attrs.video_params:

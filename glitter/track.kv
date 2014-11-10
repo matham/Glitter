@@ -11,7 +11,7 @@
 #:import path os.path
 
 
-<DragPopup>:
+<DragBehavior>:
     drag_rectangle: self.x, self.y+self._container.height, self.width, self.height - self._container.height
     drag_timeout: 10000000
     drag_distance: 0
@@ -83,7 +83,7 @@
     background_down: 'media/transparent.png'
     on_release:
         app.file_browser.def_path = ctx.last_path
-        app.file_browser.filters = ctx.filters
+        #app.file_browser.filters = ctx.filters
         app.file_browser.load_func = ctx.load_func
         app.file_browser.title = ctx.title
         app.file_browser.content.ids['list_view'].path = app.home_dir
@@ -769,7 +769,7 @@
                             app.file_browser.content.ids['icon_view'].path = app.get_last_path('data')
                             app.file_browser.content.ids['list_view'].multiselect = True
                             app.file_browser.content.ids['icon_view'].multiselect = True
-                            app.file_browser.filters = ['*.h5']
+                            #app.file_browser.filters = ['*.h5']
                             app.data_filename and app.file_browser.open()
                     Button:
                         text: 'Save'
@@ -781,7 +781,7 @@
                             app.file_browser.content.ids['list_view'].path = app.get_last_path('data')
                             app.file_browser.content.ids['icon_view'].path = app.home_dir
                             app.file_browser.content.ids['icon_view'].path = app.get_last_path('data')
-                            app.file_browser.filters = ['*.csv']
+                            #app.file_browser.filters = ['*.csv']
                             app.data_filename and app.file_browser.open()
                 Splitter:
                     size_hint_y: .7
