@@ -1,0 +1,189 @@
+
+
+<PlayerScreen@BoxLayout>:
+    orientation: 'horizontal'
+    BoxLayout:
+        size_hint: (None, 1)
+        pos_hint: {'center_y': .5}
+        orientation: 'vertical'
+        padding: [10, 30, 10, 3]
+        spacing: 5
+        width: 100
+        ToggleButton:
+            play: False
+            background_normal: 'media/pause.png'
+            background_down: 'media/play.png'
+            border: [0,0,0,0]
+            size_hint: (1, None)
+            height: 80
+            on_parent: app.pause_btn_w = self
+            on_release: (self.state == 'down') and app.pause(False) or app.unpause(False)
+        TickSlider:
+            id: rate
+            on_parent: app.rate_w = self
+            orientation: 'vertical'
+            size_hint: (1, 1)
+            padding: 30
+            log: True
+            min_log: 0.009
+            max_log: 10
+            value_log: 1
+            ticks_major: 1
+            ticks_minor: 5
+            on_value_log:
+                self.cont = not app.frame_rate and app.pause_btn_w.state == 'normal'
+                app.frame_rate = (self.value_log if self.value_log >= 0.01 else 0.0)
+                self.cont and app.frame_rate and app.unpause(False)
+        TextInput:
+            on_parent: app.rate_text_w = self
+            text: "%.2f" % (rate.value_log if rate.value_log >= 0.01 else 0.0)
+            size: (50, 30)
+            pos_hint: {'center_x': 0.4}
+            size_hint: (None, None)
+            multiline: False
+            on_text_validate: rate.value_log= str_to_float(self.text, 0.009, 10, False)
+            background_color: [0, 0, 0, 1]
+            border: [0, 0, 0, 0]
+            foreground_color: [1, 1, 1, 1]
+        Button:
+            size_hint_y: None
+            height: 40
+            background_normal: 'media/transparent.png'
+            background_down: 'media/transparent.png'
+            on_release:
+                app.img_w.rescale(rotation=90)
+            Image:
+                source: 'media/rotate_1.png' if self.parent.state == 'down' else 'media/rotate_0.png'
+                size: self.parent.size
+                pos: self.parent.pos
+                allow_stretch: True
+    Screen:
+        name: 'image'
+        ScrollView:
+            do_scroll: False, False
+            id: img_scrollview
+            RelativeLayout
+                on_size: Clock.schedule_once(partial(img.rescale, 0))
+                id: image_relative
+                Scatter:
+                    on_parent: app.img_scatter_w = self
+                    size_hint: (None, None)
+                    size: img.size
+                    do_rotation: False
+                    auto_bring_to_front: False
+                    do_collide_after_children: False
+                    do_translation:  (False, False)
+                    do_scale: False
+                    BufferImage:
+                        id: img
+                        effect_width: image_relative.width
+                        effect_height: image_relative.height
+                        size_hint: None, None
+                        on_parent: app.img_w = self
+                        on_touch_down: app.touch_down(args)
+                        on_touch_move: app.touch_move(args)
+                        on_touch_up: app.touch_up(args)
+    Splitter:
+        size_hint_x: None
+        width: 150
+        max_size: 150
+        min_size: '3pt'
+        sizable_from: 'left'
+        strip_size: '3pt'
+        BoxLayout:
+            orientation: 'vertical'
+            padding: 10
+            spacing: 5
+            ScrollView:
+                size_hint: (1, 1)
+                do_scroll_x: False
+                bar_width: '20dp'
+                BoxLayout:
+                    orientation: 'vertical'
+                    on_parent: app.xyt_buttons_w = self
+                    size_hint: (1, None)
+                    height: app.add_button_height * len(self.children)
+                    Button:
+                        size_hint_y: None
+                        height: app.add_button_height
+                        on_release: app.add_button({'score_type':'xyt'}, notify_media=True)
+                        background_normal: 'media/transparent.png'
+                        background_down: 'media/transparent.png'
+                        Image:
+                            source: 'media/add_xyt_1.png' if self.parent.state == 'down' else 'media/add_xyt_0.png'
+                            size: self.parent.size
+                            pos: self.parent.pos
+                            allow_stretch: True
+            Splitter:
+                max_size: root.height
+                min_size: 0
+                sizable_from: 'top'
+                ScrollView:
+                    size_hint: (1, 1)
+                    do_scroll_x: False
+                    bar_width: '20dp'
+                    BoxLayout:
+                        orientation: 'vertical'
+                        on_parent: app.xy_buttons_w = self
+                        size_hint: (1, None)
+                        height: app.add_button_height * len(self.children)
+                        Button:
+                            size_hint_y: None
+                            height: app.add_button_height
+                            on_release: app.add_button({'score_type':'xy'}, notify_media=True)
+                            background_normal: 'media/transparent.png'
+                            background_down: 'media/transparent.png'
+                            Image:
+                                source: 'media/add_xy_1.png' if self.parent.state == 'down' else 'media/add_xy_0.png'
+                                size: self.parent.size
+                                pos: self.parent.pos
+                                allow_stretch: True
+    Splitter:
+        size_hint_x: None
+        width: 150
+        max_size: 150
+        min_size: '3pt'
+        sizable_from: 'left'
+        strip_size: '3pt'
+        BoxLayout:
+            orientation: 'vertical'
+            padding: 10
+            spacing: 5
+            Button:
+                size_hint: (1, None)
+                height: 75
+                background_normal: 'media/minus_green.png'
+                background_down: 'media/minus_red.png'
+                border: [0,0,0,0]
+                pressing: False
+                on_parent: app.cut_t_button_w = self
+                on_press: app.curr_score and app.update_t_states(app.curr_score)
+                on_press: self.pressing = True
+                on_release: self.pressing = False
+            Button:
+                size_hint: (1, None)
+                height: 50
+                background_normal: 'media/go_next_black.png'
+                background_down: 'media/go_next_blue.png'
+                border: [0,0,0,0]
+                on_release: app.seek_to_next_break()
+            ScrollView:
+                size_hint: (1, 1)
+                do_scroll_x: False
+                bar_width: '20dp'
+                BoxLayout:
+                    orientation: 'vertical'
+                    on_parent: app.t_buttons_w = self
+                    size_hint: (1, None)
+                    height: app.add_button_height * len(self.children)
+                    Button:
+                        size_hint_y: None
+                        height: app.add_button_height
+                        on_release: app.add_button({'score_type':'t'}, notify_media=True); app.pause()
+                        background_normal: 'media/transparent.png'
+                        background_down: 'media/transparent.png'
+                        Image:
+                            source: 'media/add_t_1.png' if self.parent.state == 'down' else 'media/add_t_0.png'
+                            size: self.parent.size
+                            pos: self.parent.pos
+                            allow_stretch: True

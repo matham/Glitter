@@ -1,8 +1,8 @@
-import operator
-from kivy.garden.collider import Collide2DPoly
-import itertools
+
 
 __all__ = ('DataList', )
+
+
 
 class DataList(list):
 
@@ -15,25 +15,6 @@ class DataList(list):
         self.func = func
         self.pts = []
         self.d = d
-
-    def compare_constant(self, value, op):
-        if value.__class__ is not float and value.__class__ is not int:
-            raise Exception('Invalid data type, %s, given to %s comparison operator.' %(type(value), op))
-        if self.score_type != 'pts':
-            raise Exception("You can use the %s comparison operator only on pts." %op)
-        result = DataList(self.d, 't', self.name, '%s_%f_%s' % (op, float(value), self.name))
-        result.pts = self.pts
-        op = getattr(operator, op)
-        result[:] = [op(t, value) for t in self.d['_pts']]
-        return result
-    def __lt__(self, val):
-        return self.compare_constant(val, 'lt')
-    def __le__(self, val):
-        return self.compare_constant(val, 'le')
-    def __gt__(self, val):
-        return self.compare_constant(val, 'gt')
-    def __ge__(self, val):
-        return self.compare_constant(val, 'ge')
 
     def within_dist(self, value):
         if value.__class__ is not float and value.__class__ is not int:
